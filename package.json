@@ -1,0 +1,13 @@
+{
+	"name": "defile",
+	"description": "A convenience wrapper for the PHYSFS library.",
+	"homepage": "",
+	"copyright": "Copyright © 2013, Michael D. Parker",
+	"authors": [
+		"Mike Parker"
+	],
+
+    "dependencies": {
+		"derelict-physfs": "~master"
+	}
+}

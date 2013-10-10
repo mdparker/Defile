@@ -32,6 +32,12 @@ enum ConfigFlags {
     ArchivesFirst = 0x2,
 }
 
+enum PathType {
+    Write,
+    Base,
+    User,
+}
+
 struct Defile {
     private static {
         string _baseDir;
@@ -42,20 +48,25 @@ struct Defile {
     public static {
         void initialize() {
             import core.runtime;
+
+            DerelictPHYSFS.load();
             if( PHYSFS_init( Runtime.args[ 0 ].toStringz() ) == 0 ) {
                 throw new DefileException( "Failed to initialize virtual file system" );
             }
         }
 
         void terminate() {
-            PHYSFS_deinit();
+            if( DerelictPHYSFS.isLoaded ) {
+                PHYSFS_deinit();
+            }
         }
 
-        void setSaneConfig( string organization, string appName, string archiveExt, ConfigFlags flags ) {
+        void setSaneConfig( string organization, string appName, string archiveExt, ConfigFlags flags = ConfigFlags.None ) {
             int cds = flags & ConfigFlags.IncludeCDRoms;
             int af = flags & ConfigFlags.ArchivesFirst;
-            if( PHYSFS_setSaneConfig( organization.toStringz(), appName.toStringz(),
-                    archiveExt.toStringz(), cds, af) == 0) {
+            auto ae = archiveExt is null ? null : archiveExt.toStringz();
+
+            if( PHYSFS_setSaneConfig( organization.toStringz(), appName.toStringz(), ae, cds, af) == 0) {
                 throw new DefileException( "Failed to configure virtual file system" );
             }
         }
@@ -64,6 +75,56 @@ struct Defile {
             if( PHYSFS_mkdir( dirName.toStringz() ) == 0 ) {
                 throw new DefileException( "Failed to create directory " ~ dirName );
             }
+        }
+
+        bool exists( string filePath ) {
+            return PHYSFS_exists( filePath.toStringz() ) != 0;
+        }
+
+        void mount( string newDir, string mountPoint, bool appendToPath ) {
+            auto mp = mountPoint is null ? null : mountPoint.toStringz();
+            if( PHYSFS_mount( newDir.toStringz(), mp, appendToPath ? 1 : 0 ) == 0 ) {
+                throw new DefileException( "Failed to mount " ~ newDir );
+            }
+        }
+
+        size_t readFile( string filePath, ref ubyte[] buffer ) {
+            auto file = Defile( filePath, OpenFor.Read );
+            auto size = file.length;
+            auto ret = file.read( buffer, size, 1 );
+            return ret * size;
+        }
+
+        size_t writeFile( string filePath, ubyte[] buffer ) {
+            auto file = Defile( filePath, OpenFor.Write );
+            auto ret = file.write( buffer, buffer.length, 1 );
+            return ret * buffer.length;
+        }
+
+        string makeFilePath( PathType which, string fileName ) {
+            version( Windows ) string fmtString = "%s\\%s";
+            else string fmtString = "%s/%s";
+
+            with( PathType ) final switch( which ) {
+                case Write:
+                    return format( fmtString, _writeDir, fileName );
+
+                case Base:
+                    return format( fmtString, _baseDir, fileName );
+
+                case User:
+                    return format( fmtString, _userDir, fileName );
+            }
+        }
+
+        string findFilePath( string fileName ) {
+            auto path = makeFilePath( PathType.Write, fileName );
+            if( exists( path )) return path;
+
+            path = makeFilePath( PathType.Base, fileName );
+            if( exists( path )) return path;
+
+            return null;
         }
 
         @property {
@@ -124,11 +185,15 @@ struct Defile {
     }
 
     public {
+        this( string fileName, OpenFor ofor ) {
+            open( fileName, ofor );
+        }
+
         ~this() {
             close();
         }
 
-        void open( OpenFor ofor, string fileName ) {
+        void open( string fileName, OpenFor ofor ) {
             auto cname = fileName.toStringz();
             with( OpenFor ) final switch( ofor ) {
                 case Read:
@@ -181,7 +246,7 @@ struct Defile {
             return cast( size_t )ret;
         }
 
-        size_t read( ubyte[] buffer, uint objSize, uint objCount ) {
+        size_t read( ref ubyte[] buffer, size_t objSize, size_t objCount ) {
             assert( _handle );
 
             size_t bytesToRead = objSize * objCount;
@@ -191,16 +256,16 @@ struct Defile {
                 buffer.length += bytesToRead;
             }
 
-            auto ret = PHYSFS_read( _handle, buffer.ptr, objSize, objCount );
+            auto ret = PHYSFS_read( _handle, buffer.ptr, cast( uint )objSize, cast( uint )objCount );
             if( ret == -1 ) {
                 throw new DefileException( "Failed to read from file " ~ _name );
             }
             return cast( size_t )ret;
         }
 
-        size_t write( ubyte[] buffer, uint objSize, uint objCount ) {
+        size_t write( ubyte[] buffer, size_t objSize, size_t objCount ) {
             assert( _handle );
-            auto ret = PHYSFS_write( _handle, buffer.ptr, objSize, objCount );
+            auto ret = PHYSFS_write( _handle, buffer.ptr, cast( uint )objSize, cast( uint )objCount );
             if( ret == -1 ) {
                 throw new DefileException( "Failed to write to file " ~ _name );
             }

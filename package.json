@@ -1,7 +1,7 @@
 {
 	"name": "defile",
 	"description": "A convenience wrapper for the PHYSFS library.",
-	"homepage": "",
+	"homepage": "https://github.com/aldacron/Defile",
 	"copyright": "Copyright © 2013, Michael D. Parker",
 	"authors": [
 		"Mike Parker"

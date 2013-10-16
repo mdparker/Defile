@@ -3,6 +3,7 @@ module defile.defile;
 private {
     import std.string;
     import std.conv;
+    import std.traits;
 
     import derelict.physfs.physfs;
 }
@@ -476,7 +477,6 @@ struct Defile {
                 DefileException if an error occurs.
         +/
         void flush() {
-            assert( _handle );
             if( PHYSFS_flush( _handle ) == 0 ) {
                 throw new DefileException( "Failed to flush file " ~ _name );
             }
@@ -494,7 +494,6 @@ struct Defile {
                 DefileException if an error occurs.
         +/
         void seek( size_t position ) {
-            assert( _handle );
             if( PHYSFS_seek( _handle, position ) == 0 ) {
                 throw new DefileException( format( "Failed to seek to position %s in file %s", position, _name ));
             }
@@ -511,7 +510,6 @@ struct Defile {
                 DefileException if an error occurs.
         +/
         size_t tell() {
-            assert( _handle );
             auto ret = PHYSFS_tell( _handle );
             if( ret == -1 ) {
                 throw new DefileException( "Failed to determine position in file " ~ _name );
@@ -540,8 +538,6 @@ struct Defile {
                 DefileException if an error occurs.
         +/
         size_t read( ref ubyte[] buffer, size_t objSize, size_t objCount ) {
-            assert( _handle );
-
             size_t bytesToRead = objSize * objCount;
             if( buffer.length == 0 ) {
                 buffer = new ubyte[ bytesToRead ];
@@ -550,6 +546,32 @@ struct Defile {
             }
 
             auto ret = PHYSFS_read( _handle, buffer.ptr, cast( uint )objSize, cast( uint )objCount );
+            if( ret == -1 ) {
+                throw new DefileException( "Failed to read from file " ~ _name );
+            }
+            return cast( size_t )ret * objSize;
+        }
+
+        /++
+            A wrapper for PHYSFS_read.
+
+            Reads data from a file. Note that the file must have been opened
+            with the OpenFor.Read flag set. See the documentation for PHYSFS_read
+            for details.
+
+            Params:
+                ptr         = A pointer that will be used to store the objects read
+                            = from the file.
+                objSize     = The number of bytes to read at a time.
+                objCount    = The number of times to read objSize bytes.
+            Returns:
+                The total number of objects read.
+            Throws:
+                DefileException if an error occurs.
+        +/
+
+        size_t read( void* ptr, size_t objSize, size_t objCount ) {
+            auto ret = PHYSFS_read( _handle, ptr, cast( uint )objSize, cast( uint )objCount );
             if( ret == -1 ) {
                 throw new DefileException( "Failed to read from file " ~ _name );
             }
@@ -574,13 +596,190 @@ struct Defile {
             Throws:
                 DefileException if an error occurs.
         +/
-        size_t write( ubyte[] buffer, size_t objSize, size_t objCount ) {
-            assert( _handle );
+        size_t write( const( ubyte )[] buffer, size_t objSize, size_t objCount ) {
             auto ret = PHYSFS_write( _handle, buffer.ptr, cast( uint )objSize, cast( uint )objCount );
             if( ret == -1 ) {
                 throw new DefileException( "Failed to write to file " ~ _name );
             }
+            return cast( size_t )ret * objSize;
+        }
+
+        /++
+            A wrapper for PHYSFS_write.
+
+            Writes data to a file. Note that the file must have been opened
+            with the OpenFor.Read or OpenFor.Append flag set. See the
+            documentation for PHYSFS_write for details.
+
+            Params:
+                ptr         = A pointer to the object(s) that will be written to file.
+                objSize     = The number of bytes to write at a time.
+                objCount    = The number of times to write objSize bytes.
+            Returns:
+                The total number of objects written.
+            Throws:
+                DefileException if an error occurs.
+        +/
+        size_t write( const( void )* ptr, size_t objSize, size_t objCount ) {
+            auto ret = PHYSFS_write( _handle, ptr, objSize, objCount );
+            if( ret == -1 ) {
+                throw new DefileException( "Failed to write to file " ~ _name );
+            }
             return cast( size_t )ret;
+        }
+
+        /++
+            A templated wrapper for the PHYSFS_readSLE/ULE* functions.
+
+            This method only accepts values that are of any integral type except
+            byte and ubyte.
+
+            Returns:
+                A value of type T in little endian byte order.
+            Throws:
+                DefileException if an error occurs.
+
+        +/
+        T readLE( T )() if( isIntegral!T && !is( T == byte ) && !is( T == ubyte )) {
+            int ret;
+            T val;
+
+            static if( is( T == short )) {
+                ret = PHYSFS_readSLE16( _handle, &val );
+            } else static if( is( T == ushort )) {
+                ret = PHYSFS_readULE16( _handle, &val );
+            } else static if( is( T == int )) {
+                ret = PHYSFS_readSLE32( _handle, &val );
+            } else static if( is( T == uint )) {
+                ret = PHYSFS_readULE32( _handle, &val );
+            } else static if( is( T == long )) {
+                ret = PHYSFS_readSLE64( _handle, &val );
+            } else static if( is( T == ulong )) {
+                ret = PHYSFS_readULE64( _handle, &val );
+            } else {
+                static assert( 0 );
+            }
+
+            if( ret == 0 ) {
+                throw new DefileException( format( "Failed to read %s LE value from file %s",
+                        T.stringOf, _name ));
+            }
+            return val;
+        }
+
+        /++
+            A templated wrapper for the PHYSFS_readSBE/UBE* functions.
+
+            This method only accepts values that are of any integral type except
+            byte and ubyte.
+
+            Returns:
+                A value of type T in big endian byte order.
+            Throws:
+                DefileException if an error occurs.
+
+        +/
+        T readBE( T )() if( isIntegral!T && !is( T == byte ) && !is( T == ubyte )) {
+            int ret;
+            T val;
+
+            static if( is( T == short )) {
+                ret = PHYSFS_readSBE16( _handle, &val );
+            } else static if( is( T == ushort )) {
+                ret = PHYSFS_readUBE16( _handle, &val );
+            } else static if( is( T == int )) {
+                ret = PHYSFS_readSBE32( _handle, &val );
+            } else static if( is( T == uint )) {
+                ret = PHYSFS_readUBE32( _handle, &val );
+            } else static if( is( T == long )) {
+                ret = PHYSFS_readSBE64( _handle, &val );
+            } else static if( is( T == ulong )) {
+                ret = PHYSFS_readUBE64( _handle, &val );
+            } else {
+                static assert( 0 );
+            }
+
+            if( ret == 0 ) {
+                throw new DefileException( format( "Failed to read %s BE value from file %s",
+                        T.stringOf, _name ));
+            }
+            return val;
+        }
+
+        /++
+            A templated wrapper for the PHYSFS_writeSLE/ULE* functions.
+
+            This method only accepts values that are of any integral type except
+            byte and ubyte.
+
+            Params:
+                val     = A value of type T which will be written to the file in
+                          little endian byte order.
+            Throws:
+                DefileException if an error occurs.
+
+        +/
+        void writeLE( T )( T val ) if( isIntegral!T && !is( T == byte ) && !is( T == ubyte )) {
+            int ret;
+
+            static if( is( T == short )) {
+                ret = PHYSFS_writeSLE16( _handle, val );
+            } else static if( is( T == ushort )) {
+                ret = PHYSFS_writeULE16( _handle, val );
+            } else static if( is( T == int )) {
+                ret = PHYSFS_writeSLE32( _handle, val );
+            } else static if( is( T == uint )) {
+                ret = PHYSFS_writeULE32( _handle, val );
+            } else static if( is( T == long )) {
+                ret = PHYSFS_writeSLE64( _handle, val );
+            } else static if( is( T == ulong )) {
+                ret = PHYSFS_writeULE64( _handle, val );
+            } else {
+                static assert( 0 );
+            }
+
+            if( ret == 0 ) {
+                throw new DefileException( format( "Failed to write %s LE value to file %s",
+                        T.stringOf, _name ));
+            }
+        }
+
+        /++
+            A templated wrapper for the PHYSFS_writeSBE/UBE* functions.
+
+            This method only accepts values that are of any integral type except
+            byte and ubyte.
+
+            Params:
+                val     = A value of type T which will be written to the file in
+                          big endian byte order.
+            Throws:
+                DefileException if an error occurs.
+
+        +/
+        void writeBE( T )( T val ) if( isIntegral!T && !is( T == byte ) && !is( T == ubyte )) {
+            int ret;
+
+            static if( is( T == short )) {
+                ret = PHYSFS_writeSBE16( _handle, val );
+            } else static if( is( T == ushort )) {
+                ret = PHYSFS_writeUBE16( _handle, val );
+            } else static if( is( T == int )) {
+                ret = PHYSFS_writeSBE32( _handle, val );
+            } else static if( is( T == uint )) {
+                ret = PHYSFS_writeUBE32( _handle, val );
+            } else static if( is( T == long )) {
+                ret = PHYSFS_writeSBE64( _handle, val );
+            } else static if( is( T == ulong )) {
+                ret = PHYSFS_writeUBE64( _handle, val );
+            } else {
+                static assert( 0 );
+            }
+
+            if( ret == 0 ) {
+                throw new DefileException( format( "Failed to write %s BE value to file %s",
+                        T.stringOf, _name ));
+            }
         }
 
         @property {

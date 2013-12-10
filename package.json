@@ -8,6 +8,8 @@
 		"Mike Parker"
 	],
 
+	"targetType":"library",
+
     "dependencies": {
 		"derelict-physfs": "~master"
 	}

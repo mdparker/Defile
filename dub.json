@@ -9,7 +9,7 @@
 	],
 
 	"targetType": "library",
-	"targetPath": "bin",
+	"targetPath": "lib",
 
     "dependencies": {
 		"derelict-physfs": "1.0.0"

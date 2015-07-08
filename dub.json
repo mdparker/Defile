@@ -11,6 +11,6 @@
 	"targetType":"library",
 
     "dependencies": {
-		"derelict-physfs": "~master"
+		"derelict-physfs": "1.0.0"
 	}
 }

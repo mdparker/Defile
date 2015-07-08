@@ -160,6 +160,8 @@ struct Defile {
             if( PHYSFS_setSaneConfig( organization.toStringz(), appName.toStringz(), ae, cds, af) == 0) {
                 throw new DefileException( "Failed to configure virtual file system" );
             }
+
+            _writeDir = to!string( PHYSFS_getWriteDir() );
         }
 
         /++
@@ -309,6 +311,7 @@ struct Defile {
 
             with( PathType ) final switch( which ) {
                 case Write:
+                    assert(_writeDir !is null, "Set write dir before using it in makeFilePath");
                     return format( fmtString, _writeDir, fileName );
 
                 case Base:
@@ -378,12 +381,8 @@ struct Defile {
                     The current write directory.
             +/
             string writeDir() {
-                if( _writeDir !is null ) {
-                    return _writeDir;
-                } else {
-                    _writeDir = to!string( PHYSFS_getWriteDir() );
-                    return _writeDir;
-                }
+                assert(_writDir !is null);
+                return _writeDir;
             }
 
             /++

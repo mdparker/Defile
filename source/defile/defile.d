@@ -381,7 +381,7 @@ struct Defile {
                     The current write directory.
             +/
             string writeDir() {
-                assert(_writDir !is null);
+                assert(_writeDir !is null);
                 return _writeDir;
             }
 

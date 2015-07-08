@@ -610,7 +610,7 @@ struct Defile {
             A wrapper for PHYSFS_write.
 
             Writes data to a file. Note that the file must have been opened
-            with the OpenFor.Read or OpenFor.Append flag set. See the
+            with the OpenFor.Write or OpenFor.Append flag set. See the
             documentation for PHYSFS_write for details.
 
             Params:
@@ -636,7 +636,7 @@ struct Defile {
             A wrapper for PHYSFS_write.
 
             Writes data to a file. Note that the file must have been opened
-            with the OpenFor.Read or OpenFor.Append flag set. See the
+            with the OpenFor.Write or OpenFor.Append flag set. See the
             documentation for PHYSFS_write for details.
 
             Params:
@@ -649,7 +649,7 @@ struct Defile {
                 DefileException if an error occurs.
         +/
         size_t write( const( void )* ptr, size_t objSize, size_t objCount ) {
-            auto ret = PHYSFS_write( _handle, ptr, objSize, objCount );
+            auto ret = PHYSFS_write( _handle, ptr, cast(uint)objSize, cast(uint)objCount );
             if( ret == -1 ) {
                 throw new DefileException( "Failed to write to file " ~ _name );
             }

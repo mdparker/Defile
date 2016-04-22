@@ -1,0 +1,15 @@
+name "defile"
+description "A convenience wrapper for the PHYSFS library."
+copyright "Copyright © 2016 Michael D. Parker"
+authors "Michael D. Parker"
+license: "Boost"
+
+targetType "staticLibrary"
+targetPath "lib"
+
+dependency "derelict-physfs" version="~>1.0.0"
+
+/*
+copyFiles "bin/glfw3-x86_64.dll" platform="windows-x86_64"
+copyFiles "bin/glfw3-x86.dll" platform="windows-x86"
+*/

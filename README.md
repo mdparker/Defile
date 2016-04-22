@@ -1,7 +1,7 @@
 Defile
 ======
 
-A convenience wrapper for the PHYSFS library, for the D Programming Language. Note that this is currently incomplete and will be fleshed out over time.
+A convenience wrapper for the PHYSFS library, for the D Programming Language. Note that this is currently incomplete and will be fleshed out over time. Use at your own risk.
 
 ##Usage
 

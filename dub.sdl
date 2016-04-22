@@ -2,7 +2,7 @@ name "defile"
 description "A convenience wrapper for the PHYSFS library."
 copyright "Copyright © 2016 Michael D. Parker"
 authors "Michael D. Parker"
-license: "Boost"
+license "Boost"
 
 targetType "staticLibrary"
 targetPath "lib"

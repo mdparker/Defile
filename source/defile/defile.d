@@ -102,7 +102,15 @@ public:
     {
         import core.runtime;
 
-        DerelictPHYSFS.load();
+        version(Win64)
+            enum physfsDLL = "physfs-x86_64.dll";
+        else version(Win32)
+            enum physfsDLL = "physfs-x86.dll";
+        else
+            enum physfsDLL = "";
+
+        DerelictPHYSFS.load(physfsDLL);
+
         if(PHYSFS_init(Runtime.args[ 0 ].toStringz()) == 0) {
             throw new DefileException("Failed to initialize virtual file system");
         }
@@ -152,10 +160,10 @@ public:
         Throws:
             DefileException if the call fails.
     +/
-    static void setSaneConfig(string organization, string appName, string archiveExt, ConfigFlags flags = ConfigFlags.None)
+    static void setSaneConfig(string organization, string appName, string archiveExt, ConfigFlags flags = ConfigFlags.none)
     {
-        int cds = flags & ConfigFlags.IncludeCDRoms;
-        int af = flags & ConfigFlags.ArchivesFirst;
+        int cds = flags & ConfigFlags.includeCDRoms;
+        int af = flags & ConfigFlags.archivesFirst;
         auto ae = archiveExt is null ? null : archiveExt.toStringz();
 
         if(PHYSFS_setSaneConfig(organization.toStringz(), appName.toStringz(), ae, cds, af) == 0) {
@@ -264,7 +272,7 @@ public:
     +/
     static size_t readFile(string filePath, ref ubyte[] buffer)
     {
-        auto file = Defile(filePath, OpenFor.Read);
+        auto file = Defile(filePath, OpenFor.read);
         auto size = file.length;
         auto ret = file.read(buffer, size, 1);
         return ret * size;
@@ -287,7 +295,7 @@ public:
     +/
     static size_t writeFile(string filePath, ubyte[] buffer)
     {
-        auto file = Defile(filePath, OpenFor.Write);
+        auto file = Defile(filePath, OpenFor.write);
         auto ret = file.write(buffer, buffer.length, 1);
         return ret * buffer.length;
     }
@@ -318,14 +326,14 @@ public:
         else string fmtString = "%s/%s";
 
         with(PathType) final switch(which) {
-            case Write:
+            case write:
                 assert(_writeDir !is null, "Set write dir before using it in makeFilePath");
                 return format(fmtString, _writeDir, fileName);
 
-            case Base:
+            case base:
                 return format(fmtString, _baseDir, fileName);
 
-            case User:
+            case user:
                 return format(fmtString, _userDir, fileName);
         }
     }
@@ -348,10 +356,10 @@ public:
     +/
     static string findFilePath(string fileName)
     {
-        auto path = makeFilePath(PathType.Write, fileName);
+        auto path = makeFilePath(PathType.write, fileName);
         if(exists(path)) return path;
 
-        path = makeFilePath(PathType.Base, fileName);
+        path = makeFilePath(PathType.base, fileName);
         if(exists(path)) return path;
 
         return null;
@@ -470,15 +478,15 @@ public:
     {
         auto cname = fileName.toStringz();
         with(OpenFor) final switch(ofor) {
-            case Read:
+            case read:
                 _handle = PHYSFS_openRead(cname);
                 break;
 
-            case Write:
+            case write:
                 _handle = PHYSFS_openWrite(cname);
                 break;
 
-            case Append:
+            case append:
                 _handle = PHYSFS_openAppend(cname);
                 break;
         }

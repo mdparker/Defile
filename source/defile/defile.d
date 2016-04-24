@@ -67,7 +67,11 @@ enum ConfigFlags {
 enum PathType {
     write,
     base,
-    user,
+}
+
+enum MountAction {
+    prepend,
+    append,
 }
 
 /++
@@ -116,7 +120,6 @@ public:
         }
 
         _baseDir = to!string(PHYSFS_getBaseDir());
-        _userDir = to!string(PHYSFS_getUserDir());
     }
 
     /++
@@ -137,40 +140,56 @@ public:
     }
 
     /++
-        A wrapper for PHYSFS_setSaneConfig.
+        Creates the application write directory.
 
-        Sets an initial search path for the virtual file system. See the
-        documentation for PHYSFS_setSaneConfig for details.
+        This function only ensures the write directory is created. It does not
+        add it to the search path. Until this function is called, the
+        Defile.writeDir property is invalid.
 
         Params:
-            organization    = If non-null, the name to be used as the top-level
+            organization    = The name to be used as the top-level
                               of the app's write directory tree. Should be the name of
                               your group or company.
             appName         = The name of the application. Will be a subdirectory
                               under 'organization' if organization is null, or the
                               app's top-level write directory.
-            archiveExt      = The file extension used by your program to specify
-                              an archive, e.g. "pk3" in Quake3. Note that the archive
-                              format must be one supported by PhysicsFS.
-            flags           = If ConfigFlags.IncludeCDRoms is set, the CD-ROM
-                              drive(s) is added to the search path. If
-                              ConfigFlags.ArchivesFirst is set, all archives are
-                              prepended to the search path, otherwise they are
-                              appended.
         Throws:
             DefileException if the call fails.
     +/
-    static void setSaneConfig(string organization, string appName, string archiveExt, ConfigFlags flags = ConfigFlags.none)
+    static void createWriteDir(string organization, string appName)
     {
-        int cds = flags & ConfigFlags.includeCDRoms;
-        int af = flags & ConfigFlags.archivesFirst;
-        auto ae = archiveExt is null ? null : archiveExt.toStringz();
+        auto cstr = PHYSFS_getPrefDir(organization.toStringz(), appName.toStringz());
+        if(!cstr) throw new DefileException("Failed to create application write directory");
 
-        if(PHYSFS_setSaneConfig(organization.toStringz(), appName.toStringz(), ae, cds, af) == 0) {
-            throw new DefileException("Failed to configure virtual file system");
-        }
+        _writeDir = to!string(cstr);
+    }
 
-        _writeDir = to!string(PHYSFS_getWriteDir());
+    /*
+        Creates the write directory and adds it to the search path, followed by the base
+        directory.
+
+        It is common in games to search for files first in the write directory, then in
+        the base directory. This allows default files that ship with the game to be
+        maintained in the base directory, then overidden on loading by searching in
+        the write directory first. If this configuration does not suit your application,
+        then do not call this function. Instead, call createWriteDir directly and
+        manually configure the search path using the mount function.
+
+        Params:
+            organization    = The name to be used as the top-level
+                              of the app's write directory tree. Should be the name of
+                              your group or company.
+            appName         = The name of the application. Will be a subdirectory
+                              under 'organization' if organization is null, or the
+                              app's top-level write directory.
+        Throws:
+            DefileException if the call fails.
+    */
+    static void createDefaultSearchPath(string organization, string appName)
+    {
+        createWriteDir(organization, appName);
+        mount(_writeDir);
+        mount(_baseDir);
     }
 
     /++
@@ -236,17 +255,16 @@ public:
         Params:
             newDir      = directory or archive to add to the search path.
             mountPoint  = location in the tree in which to add newDir. null
-                          or "" is equivalent to "/", i.e. the root.
-            appendToPath = If true, the path will be appeneded to the search
-                           path. If false, the path will be prepended to the
-                           search path.
+                          or "" is equivalent to "/". This is the default.
+            action      = indicates if the directory should be appended or prepended
+                          to the search path. The default is MountAction.append.
         Throws:
             DefileException if the call fails.
     +/
-    static void mount(string newDir, string mountPoint, bool appendToPath)
+    static void mount(string newDir, string mountPoint = "", MountAction action = MountAction.append)
     {
         auto mp = mountPoint is null ? null : mountPoint.toStringz();
-        if(PHYSFS_mount(newDir.toStringz(), mp, appendToPath ? 1 : 0) == 0) {
+        if(PHYSFS_mount(newDir.toStringz(), mp, action) == 0) {
             throw new DefileException("Failed to mount " ~ newDir);
         }
     }
@@ -314,8 +332,8 @@ public:
         builds the path.
 
         Params:
-            which       = Specifies which directory will comprise the path. One
-                          of PathType.Write, PathType.Base or PathType.User.
+            which       = Specifies which directory will comprise the path. Either
+                          PathType.Write or PathType.Base.
             fileName    = The name of the file that will be appended to the path.
         Returns:
             A relative path in the virtual file system.
@@ -332,9 +350,6 @@ public:
 
             case base:
                 return format(fmtString, _baseDir, fileName);
-
-            case user:
-                return format(fmtString, _userDir, fileName);
         }
     }
 
@@ -384,15 +399,6 @@ public:
     static string baseDir()
     {
         return _baseDir;
-    }
-
-    /++
-        Returns:
-            The user directory as specified by the operating system.
-    +/
-    static string userDir()
-    {
-        return _userDir;
     }
 
     /++
@@ -886,7 +892,6 @@ public:
 
 private:
     static string _baseDir;
-    static string _userDir;
     static string _writeDir;
     string _name;
     PHYSFS_File *_handle;

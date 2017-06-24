@@ -7,8 +7,5 @@ license "Boost"
 targetType "staticLibrary"
 targetPath "lib"
 
-dependency "derelict-physfs" version="~>2.0.0"
-
-copyFiles "bin/physfs-x86_64.dll" platform="windows-x86_64"
-copyFiles "bin/physfs-x86.dll" platform="windows-x86"
+dependency "derelict-physfs" version="~>3.0.0-beta"
 
